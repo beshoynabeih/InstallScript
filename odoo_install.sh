@@ -42,12 +42,6 @@ LONGPOLLING_PORT="8072"
 ENABLE_SSL="True"
 # Provide Email to register ssl certificate
 ADMIN_EMAIL="odoo@example.com"
-##
-###  WKHTMLTOPDF download links
-## === Ubuntu Trusty x64 & x32 === (for other distributions please replace these two links,
-## in order to have correct version of wkhtmltopdf installed, for a danger note refer to
-## https://github.com/odoo/odoo/wiki/Wkhtmltopdf ):
-## https://www.odoo.com/documentation/17.0/administration/on_premise/source.html
 
 #--------------------------------------------------
 # Update Server
@@ -84,7 +78,7 @@ sudo npm install -g rtlcss
 if [ $INSTALL_WKHTMLTOPDF = "True" ]; then
   echo -e "\n---- Install wkhtmltopdf----"
   #pick up correct one from x64 & x32 versions:
-  WKHTMLTOX_X64=https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_amd64.deb
+  WKHTMLTOX_X64=https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.$(lsb_release -c -s)_amd64.deb
   sudo wget  $WKHTMLTOX_X64
   sudo apt install ./wkhtmltox_0.12.6.1-3.jammy_amd64.deb -y
   sudo rm wkhtmltox_0.12.6.1-3.jammy_amd64.deb
