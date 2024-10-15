@@ -39,7 +39,7 @@ WEBSITE_NAME="_"
 # Set the default Odoo longpolling port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 LONGPOLLING_PORT="8072"
 # Set to "True" to install certbot and have ssl enabled, "False" to use http
-ENABLE_SSL="True"
+ENABLE_SSL="False"
 # Provide Email to register ssl certificate
 ADMIN_EMAIL="odoo@example.com"
 
@@ -103,7 +103,7 @@ if [ $IS_ENTERPRISE = "True" ]; then
     # Odoo Enterprise install!
     sudo pip3 install psycopg2-binary pdfminer.six
 
-    GITHUB_RESPONSE=$(sudo git clone --depth 1 --branch $OE_VERSION https://www.github.com/odoo/enterprise "$OE_HOME" 2>&1)
+    GITHUB_RESPONSE=$(sudo git clone --depth 1 --branch $OE_VERSION https://www.github.com/odoo/enterprise.git "$OE_HOME" 2>&1)
     while [[ $GITHUB_RESPONSE == *"Authentication"* ]]; do
         echo "------------------------WARNING------------------------------"
         echo "Your authentication with Github has failed! Please try again."
@@ -137,6 +137,12 @@ fi
 sudo su root -c "printf 'admin_passwd = ${OE_SUPERADMIN}\n' >> /etc/${OE_CONFIG}.conf"
 sudo su root -c "printf 'http_port = ${OE_PORT}\n' >> /etc/${OE_CONFIG}.conf"
 sudo su root -c "printf 'logfile = /var/log/${OE_USER}/${OE_CONFIG}.log\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'max_cron_threads = 1' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'default_productivity_apps = False' >> /etc/${OE_CONFIG}.conf"
+
+if [ $INSTALL_NGINX = "True" ]; then
+    sudo su root -c "printf 'proxy_mode = True' >> /etc/${OE_CONFIG}.conf"
+fi
 
 if [ $IS_ENTERPRISE = "True" ]; then
     sudo su root -c "printf 'addons_path=${OE_HOME}/enterprise,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
@@ -185,6 +191,17 @@ if [ $INSTALL_NGINX = "True" ]; then
   echo -e "\n---- Installing and setting up Nginx ----"
   sudo apt install nginx -y
   cat <<EOF > ~/odoo
+  upstream odoo17 {
+    server 127.0.0.1:$OE_PORT;
+  }
+  upstream odoochat17 {
+    server 127.0.0.1:$LONGPOLLING_PORT;
+  }
+  map \$http_upgrade \$connection_upgrade {
+    default upgrade;
+    ''      close;
+  }
+
   server {
   listen 80;
 
@@ -233,26 +250,26 @@ if [ $INSTALL_NGINX = "True" ]; then
   client_max_body_size 0;
 
   location / {
-  proxy_pass    http://127.0.0.1:$OE_PORT;
-  # by default, do not forward anything
-  proxy_redirect off;
+    proxy_pass    http://odoo17;
+    # by default, do not forward anything
+    proxy_redirect off;
   }
 
-  location /longpolling {
-  proxy_pass http://127.0.0.1:$LONGPOLLING_PORT;
+  location /websocket {
+    proxy_pass http://odoochat17;
   }
   location ~* .(js|css|png|jpg|jpeg|gif|ico)$ {
-  expires 2d;
-  proxy_pass http://127.0.0.1:$OE_PORT;
-  add_header Cache-Control "public, no-transform";
+    expires 2d;
+    proxy_pass http://odoo17;
+    add_header Cache-Control "public, no-transform";
   }
   # cache some static data in memory for 60mins.
   location ~ /[a-zA-Z0-9_-]*/static/ {
-  proxy_cache_valid 200 302 60m;
-  proxy_cache_valid 404      1m;
-  proxy_buffering    on;
-  expires 864000;
-  proxy_pass    http://127.0.0.1:$OE_PORT;
+    proxy_cache_valid 200 302 60m;
+    proxy_cache_valid 404      1m;
+    proxy_buffering    on;
+    expires 864000;
+    proxy_pass    http://odoo17;
   }
   }
 EOF
